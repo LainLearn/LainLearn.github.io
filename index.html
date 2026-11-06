@@ -3,33 +3,40 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Casino Mortel</title>
+  <title>CasLife</title>
   <link rel="stylesheet" href="style.css">
   <script src="script.js" defer></script>
 </head>
 <body>
   <main class="casino">
-    <h1>🎰 Casino Mortel 🎰</h1>
-    <p class="sous-titre">Tu as 100 €. Quand tu n'as plus rien, tu paries tes membres. Bonne chance.</p>
+    <h1>🎰 CasLife 🎰</h1>
+    <p class="sous-titre">Tu as 100 €. C'est tout ce qu'il te reste dans la vie. Quand tu n'as plus rien, tu paries tes membres.</p>
 
     <section class="haut">
       <!-- Le personnage (dessin SVG) -->
       <div class="perso-zone">
         <svg id="perso" viewBox="0 0 200 300" aria-label="Ton personnage">
+          <ellipse id="flaque" cx="100" cy="282" rx="70" ry="9" />
           <g id="jambeG"><line x1="85" y1="170" x2="65" y2="270" /></g>
           <g id="jambeD"><line x1="115" y1="170" x2="135" y2="270" /></g>
-          <g id="brasG"><line x1="80" y1="110" x2="35" y2="165" /></g>
-          <g id="brasD"><line x1="120" y1="110" x2="165" y2="165" /></g>
+          <g id="brasG"><line x1="80" y1="110" x2="62" y2="212" /></g>
+          <g id="brasD"><line x1="120" y1="110" x2="138" y2="212" /></g>
           <rect id="corps" x="75" y="95" width="50" height="85" rx="18" />
+          <circle id="m-brasG" class="moignon" cx="80" cy="110" r="10" />
+          <circle id="m-brasD" class="moignon" cx="120" cy="110" r="10" />
+          <circle id="m-jambeG" class="moignon" cx="85" cy="172" r="10" />
+          <circle id="m-jambeD" class="moignon" cx="115" cy="172" r="10" />
           <circle id="tete" cx="100" cy="55" r="38" />
-          <text id="visage" x="100" y="70" text-anchor="middle">😎</text>
+          <text id="visage" x="100" y="70" text-anchor="middle">😔</text>
+          <g id="volants"></g>
+          <g id="sang"></g>
         </svg>
         <p id="etat-membres"></p>
       </div>
 
       <div class="infos">
         <p class="argent">💰 <span id="argent">100</span> €</p>
-        <p id="message" aria-live="polite">Choisis un jeu et fais ta mise !</p>
+        <p id="message" aria-live="polite">Encore une partie... pour quoi faire ?</p>
       </div>
     </section>
 
@@ -84,8 +91,8 @@
 
     <!-- Apparaît quand l'argent tombe à 0 -->
     <section id="zone-membre" class="cache">
-      <p>Tu es fauché ! Le croupier te propose un dernier marché :</p>
-      <p>Un pile ou face. Si tu gagnes, +100 €. Si tu perds, il garde un membre.</p>
+      <p>Tu es fauché ! Le croupier affûte sa tronçonneuse et te propose un dernier marché :</p>
+      <p>Un pile ou face. Si tu gagnes, +100 €. Si tu perds, il te découpe un membre sur place.</p>
       <button type="button" id="btn-membre">Parier un membre 🦵</button>
     </section>
 
@@ -97,5 +104,6 @@
 
     <ul id="historique"></ul>
   </main>
+  <div id="flash"></div>
 </body>
 </html>
