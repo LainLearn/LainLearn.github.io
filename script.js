@@ -194,18 +194,11 @@ function deplacerBoss() {
 function dessiner() {
   ctx.clearRect(0, 0, largeur, hauteur);
 
-  // Le joueur
-  ctx.fillStyle = "#6fc3a0";
-  ctx.beginPath();
-  ctx.arc(joueur.x, joueur.y, joueur.rayon, 0, Math.PI * 2);
-  ctx.fill();
+  dessinerJoueur();
 
-  // Les boules
-  ctx.fillStyle = "#e05a4e";
+  // Les boules à piques
   for (let i = 0; i < boules.length; i++) {
-    ctx.beginPath();
-    ctx.arc(boules[i].x, boules[i].y, boules[i].rayon, 0, Math.PI * 2);
-    ctx.fill();
+    dessinerBouleAPiques(boules[i].x, boules[i].y, boules[i].rayon);
   }
 
   // Les lasers
@@ -233,6 +226,71 @@ function dessiner() {
   if (bossArrive) {
     dessinerBoss();
   }
+}
+
+// Dessine le joueur comme un petit bonhomme façon Roblox :
+// une tête ronde, un torse et des jambes en blocs.
+function dessinerJoueur() {
+  const x = joueur.x;
+  const y = joueur.y;
+
+  // Les jambes
+  ctx.fillStyle = "#2f3b52";
+  ctx.fillRect(x - 10, y + 6, 8, 16);
+  ctx.fillRect(x + 2, y + 6, 8, 16);
+
+  // Le torse
+  ctx.fillStyle = "#4a90d9";
+  ctx.fillRect(x - 11, y - 10, 22, 18);
+
+  // Les bras
+  ctx.fillStyle = "#4a90d9";
+  ctx.fillRect(x - 15, y - 9, 5, 15);
+  ctx.fillRect(x + 10, y - 9, 5, 15);
+
+  // La tête, bien ronde comme sur Roblox
+  ctx.fillStyle = "#f2c85b";
+  ctx.beginPath();
+  ctx.arc(x, y - 18, 10, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Un petit sourire
+  ctx.strokeStyle = "#8a6a1a";
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.arc(x, y - 16, 4, 0.2, Math.PI - 0.2);
+  ctx.stroke();
+}
+
+// Dessine une boule à piques : un cercle avec des triangles tout autour
+function dessinerBouleAPiques(x, y, rayon) {
+  const nombreDePiques = 8;
+  const longueurPique = 6;
+
+  ctx.fillStyle = "#b5352b";
+  for (let i = 0; i < nombreDePiques; i++) {
+    const angle = (i / nombreDePiques) * Math.PI * 2;
+
+    const pointeX = x + Math.cos(angle) * (rayon + longueurPique);
+    const pointeY = y + Math.sin(angle) * (rayon + longueurPique);
+    const baseGaucheX = x + Math.cos(angle - 0.25) * rayon;
+    const baseGaucheY = y + Math.sin(angle - 0.25) * rayon;
+    const baseDroiteX = x + Math.cos(angle + 0.25) * rayon;
+    const baseDroiteY = y + Math.sin(angle + 0.25) * rayon;
+
+    ctx.beginPath();
+    ctx.moveTo(baseGaucheX, baseGaucheY);
+    ctx.lineTo(pointeX, pointeY);
+    ctx.lineTo(baseDroiteX, baseDroiteY);
+    ctx.closePath();
+    ctx.fill();
+  }
+
+  // Le centre de la boule, par-dessus les piques
+  ctx.fillStyle = "#e05a4e";
+  ctx.beginPath();
+  ctx.arc(x, y, rayon, 0, Math.PI * 2);
+  ctx.fill();
 }
 
 function dessinerBoss() {
