@@ -3,107 +3,26 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>CasLife</title>
+  <title>Esquive</title>
   <link rel="stylesheet" href="style.css">
   <script src="script.js" defer></script>
 </head>
 <body>
-  <main class="casino">
-    <h1>CasLife</h1>
-    <p class="sous-titre">Tu as 100 €. C'est tout ce qu'il te reste dans la vie. Quand tu n'as plus rien, tu paries tes membres.</p>
+  <main class="jeu">
+    <h1>Esquive</h1>
+    <p class="regle">Déplace-toi avec les flèches ou ZQSD. Survis le plus longtemps possible. Un boss arrive au bout de 10 secondes.</p>
 
-    <section class="haut">
-      <!-- Le personnage (dessin SVG) -->
-      <div class="perso-zone">
-        <svg id="perso" viewBox="0 0 200 300" aria-label="Ton personnage">
-          <ellipse id="flaque" cx="100" cy="282" rx="70" ry="9" />
-          <g id="jambeG"><line x1="85" y1="170" x2="65" y2="270" /></g>
-          <g id="jambeD"><line x1="115" y1="170" x2="135" y2="270" /></g>
-          <g id="brasG"><line x1="80" y1="110" x2="62" y2="212" /></g>
-          <g id="brasD"><line x1="120" y1="110" x2="138" y2="212" /></g>
-          <rect id="corps" x="75" y="95" width="50" height="85" rx="18" />
-          <circle id="m-brasG" class="moignon" cx="80" cy="110" r="10" />
-          <circle id="m-brasD" class="moignon" cx="120" cy="110" r="10" />
-          <circle id="m-jambeG" class="moignon" cx="85" cy="172" r="10" />
-          <circle id="m-jambeD" class="moignon" cx="115" cy="172" r="10" />
-          <circle id="tete" cx="100" cy="55" r="38" />
-          <text id="visage" x="100" y="70" text-anchor="middle">😔</text>
-          <g id="volants"></g>
-          <g id="sang"></g>
-        </svg>
-        <p id="etat-membres"></p>
-      </div>
+    <div class="barre">
+      <p>Temps : <span id="temps">0</span> s</p>
+      <p>Record : <span id="record">0</span> s</p>
+    </div>
 
-      <div class="infos">
-        <p class="argent"><span id="argent">100</span> €</p>
-        <p id="message" aria-live="polite">Encore une partie... pour quoi faire ?</p>
-      </div>
-    </section>
+    <canvas id="scene" width="600" height="400"></canvas>
 
-    <section id="zone-jeux">
-      <label>Ta mise (€) : <input id="mise" type="number" min="1" value="10"></label>
-
-      <div class="onglets">
-        <button type="button" data-jeu="pf" class="onglet actif">Pile ou face</button>
-        <button type="button" data-jeu="des" class="onglet">Dés</button>
-        <button type="button" data-jeu="roulette" class="onglet">Roulette</button>
-      </div>
-
-      <!-- Pile ou face -->
-      <div id="jeu-pf" class="jeu">
-        <div id="piece">🪙</div>
-        <button type="button" id="btn-pile">Pile</button>
-        <button type="button" id="btn-face">Face</button>
-        <p class="regle">Gain : x2 ta mise.</p>
-      </div>
-
-      <!-- Dés (cube en 3D) -->
-      <div id="jeu-des" class="jeu cache">
-        <div class="scene">
-          <div id="de" class="cube">
-            <div class="face f1">⚀</div>
-            <div class="face f2">⚁</div>
-            <div class="face f3">⚂</div>
-            <div class="face f4">⚃</div>
-            <div class="face f5">⚄</div>
-            <div class="face f6">⚅</div>
-          </div>
-        </div>
-        <label>Je parie sur le :
-          <select id="choix-de">
-            <option>1</option><option>2</option><option>3</option>
-            <option>4</option><option>5</option><option>6</option>
-          </select>
-        </label>
-        <button type="button" id="btn-de">Lancer le dé</button>
-        <p class="regle">Si tu devines, tu gagnes 4 fois ta mise.</p>
-      </div>
-
-      <!-- Roulette -->
-      <div id="jeu-roulette" class="jeu cache">
-        <div id="roue"><span id="numero">?</span></div>
-        <button type="button" id="btn-rouge" class="rouge">Rouge</button>
-        <button type="button" id="btn-noir" class="noir">Noir</button>
-        <button type="button" id="btn-zero" class="vert">Zéro</button>
-        <p class="regle">Rouge / Noir : x2 ta mise. Zéro : x15 ta mise.</p>
-      </div>
-    </section>
-
-    <!-- Apparaît quand l'argent tombe à 0 -->
-    <section id="zone-membre" class="cache">
-      <p>Tu es fauché ! Le croupier affûte sa tronçonneuse et te propose un dernier marché :</p>
-      <p>Un pile ou face. Si tu gagnes, +100 €. Si tu perds, il te découpe un membre sur place.</p>
-      <button type="button" id="btn-membre">Parier un membre 🦵</button>
-    </section>
-
-    <section id="zone-fin" class="cache">
-      <h2>💀 GAME OVER 💀</h2>
-      <p id="texte-fin"></p>
-      <button type="button" id="btn-rejouer">Rejouer</button>
-    </section>
-
-    <ul id="historique"></ul>
+    <div id="finPartie" class="cache">
+      <p id="messageFin"></p>
+      <button id="rejouer" type="button">Rejouer</button>
+    </div>
   </main>
-  <div id="flash"></div>
 </body>
 </html>

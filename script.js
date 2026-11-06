@@ -1,359 +1,274 @@
-// ===== CasLife : le cerveau du jeu =====
+// ===== Le jeu "Esquive" =====
+// Un petit bonhomme doit éviter des boules et des lasers.
+// Au bout de 10 secondes, un boss apparaît et tire plus souvent.
 
-// ---------- 1. L'état du jeu ----------
-// Tout ce qu'on doit retenir : l'argent et les membres qu'il reste.
-const NOMS_MEMBRES = {
-  brasG: "bras gauche",
-  brasD: "bras droit",
-  jambeG: "jambe gauche",
-  jambeD: "jambe droite"
+const scene = document.querySelector("#scene");
+const ctx = scene.getContext("2d");
+
+const affichageTemps = document.querySelector("#temps");
+const affichageRecord = document.querySelector("#record");
+const finPartie = document.querySelector("#finPartie");
+const messageFin = document.querySelector("#messageFin");
+const boutonRejouer = document.querySelector("#rejouer");
+
+const largeur = scene.width;
+const hauteur = scene.height;
+
+// ---------- 1. Le joueur ----------
+let joueur = {
+  x: largeur / 2,
+  y: hauteur / 2,
+  rayon: 14,
+  vitesse: 4
 };
 
-function nouvellePartie() {
-  return {
-    argent: 100,
-    membres: { brasG: true, brasD: true, jambeG: true, jambeD: true },
-    mort: false
-  };
+// Quelles touches sont actuellement enfoncées
+let toucheHaut = false;
+let toucheBas = false;
+let toucheGauche = false;
+let toucheDroite = false;
+
+document.addEventListener("keydown", function (evenement) {
+  if (evenement.key === "ArrowUp" || evenement.key === "z" || evenement.key === "Z") toucheHaut = true;
+  if (evenement.key === "ArrowDown" || evenement.key === "s" || evenement.key === "S") toucheBas = true;
+  if (evenement.key === "ArrowLeft" || evenement.key === "q" || evenement.key === "Q") toucheGauche = true;
+  if (evenement.key === "ArrowRight" || evenement.key === "d" || evenement.key === "D") toucheDroite = true;
+});
+
+document.addEventListener("keyup", function (evenement) {
+  if (evenement.key === "ArrowUp" || evenement.key === "z" || evenement.key === "Z") toucheHaut = false;
+  if (evenement.key === "ArrowDown" || evenement.key === "s" || evenement.key === "S") toucheBas = false;
+  if (evenement.key === "ArrowLeft" || evenement.key === "q" || evenement.key === "Q") toucheGauche = false;
+  if (evenement.key === "ArrowRight" || evenement.key === "d" || evenement.key === "D") toucheDroite = false;
+});
+
+// Déplace le joueur selon les touches enfoncées
+function deplacerJoueur() {
+  if (toucheHaut) joueur.y = joueur.y - joueur.vitesse;
+  if (toucheBas) joueur.y = joueur.y + joueur.vitesse;
+  if (toucheGauche) joueur.x = joueur.x - joueur.vitesse;
+  if (toucheDroite) joueur.x = joueur.x + joueur.vitesse;
+
+  // On empêche le joueur de sortir de l'écran
+  if (joueur.x < joueur.rayon) joueur.x = joueur.rayon;
+  if (joueur.x > largeur - joueur.rayon) joueur.x = largeur - joueur.rayon;
+  if (joueur.y < joueur.rayon) joueur.y = joueur.rayon;
+  if (joueur.y > hauteur - joueur.rayon) joueur.y = hauteur - joueur.rayon;
 }
 
-let etat = charger();
-let occupe = false; // true pendant une animation (empêche de spammer les boutons)
+// ---------- 2. Les boules ----------
+// Chaque boule est un objet avec une position (x, y) et une vitesse (vx, vy)
+let boules = [];
 
-// ---------- 2. Sauvegarde (localStorage) ----------
-function sauvegarder() {
-  try {
-    localStorage.setItem("casLife", JSON.stringify(etat));
-  } catch (e) {
-    console.log("Sauvegarde impossible", e);
+function creerBoule() {
+  // La boule part d'un bord au hasard et se dirige vers le centre
+  const bord = nombreAuHasard(0, 3); // 0 = haut, 1 = bas, 2 = gauche, 3 = droite
+  let x, y;
+
+  if (bord === 0) { x = nombreAuHasard(0, largeur); y = -20; }
+  if (bord === 1) { x = nombreAuHasard(0, largeur); y = hauteur + 20; }
+  if (bord === 2) { x = -20; y = nombreAuHasard(0, hauteur); }
+  if (bord === 3) { x = largeur + 20; y = nombreAuHasard(0, hauteur); }
+
+  // On calcule la direction vers le centre de l'écran
+  const dx = largeur / 2 - x;
+  const dy = hauteur / 2 - y;
+  const distance = Math.sqrt(dx * dx + dy * dy);
+  const vitesse = 2;
+
+  boules.push({
+    x: x,
+    y: y,
+    vx: (dx / distance) * vitesse,
+    vy: (dy / distance) * vitesse,
+    rayon: 9
+  });
+}
+
+function deplacerBoules() {
+  for (let i = 0; i < boules.length; i++) {
+    boules[i].x = boules[i].x + boules[i].vx;
+    boules[i].y = boules[i].y + boules[i].vy;
   }
 }
 
-function charger() {
-  try {
-    const texte = localStorage.getItem("casLife");
-    if (texte) return JSON.parse(texte);
-  } catch (e) {
-    console.log("Chargement impossible", e);
+// ---------- 3. Les lasers ----------
+// Un laser est une ligne horizontale ou verticale.
+// Il "prévient" pendant 0.5 seconde (en jaune), puis devient dangereux (en rouge) pendant 0.3 seconde.
+let lasers = [];
+
+function creerLaser() {
+  const vertical = nombreAuHasard(0, 1) === 0;
+  lasers.push({
+    vertical: vertical,
+    position: vertical ? nombreAuHasard(30, largeur - 30) : nombreAuHasard(30, hauteur - 30),
+    prevention: 30, // nombre d'images restantes en mode "prévention" (jaune)
+    actif: 18        // nombre d'images restantes en mode "dangereux" (rouge), une fois la prévention finie
+  });
+}
+
+function mettreAJourLasers() {
+  for (let i = 0; i < lasers.length; i++) {
+    if (lasers[i].prevention > 0) {
+      lasers[i].prevention = lasers[i].prevention - 1;
+    } else {
+      lasers[i].actif = lasers[i].actif - 1;
+    }
   }
-  return nouvellePartie();
+  // On enlève les lasers terminés (prevention à 0 ET actif à 0 ou moins)
+  lasers = lasers.filter(function (laser) {
+    return laser.prevention > 0 || laser.actif > 0;
+  });
 }
 
-// ---------- 3. On retrouve les éléments de la page ----------
-const affichageArgent = document.querySelector("#argent");
-const message = document.querySelector("#message");
-const champMise = document.querySelector("#mise");
-const historique = document.querySelector("#historique");
-const perso = document.querySelector("#perso");
-const visage = document.querySelector("#visage");
-const etatMembres = document.querySelector("#etat-membres");
-const zoneJeux = document.querySelector("#zone-jeux");
-const zoneMembre = document.querySelector("#zone-membre");
-const zoneFin = document.querySelector("#zone-fin");
-const texteFin = document.querySelector("#texte-fin");
-const flaque = document.querySelector("#flaque");
-const volants = document.querySelector("#volants");
-const sang = document.querySelector("#sang");
-const flash = document.querySelector("#flash");
-const casino = document.querySelector(".casino");
+// ---------- 4. Le boss ----------
+let bossArrive = false;
 
-// ---------- 4. Petites fonctions utiles ----------
-function ecrire(texte) {
-  message.textContent = texte;
-  const ligne = document.createElement("li");
-  ligne.textContent = texte;
-  historique.prepend(ligne); // on ajoute en haut de la liste
+function declencherBoss() {
+  bossArrive = true;
 }
 
+// ---------- 5. Dessiner la scène ----------
+function dessiner() {
+  ctx.clearRect(0, 0, largeur, hauteur);
+
+  // Le joueur
+  ctx.fillStyle = "#6fc3a0";
+  ctx.beginPath();
+  ctx.arc(joueur.x, joueur.y, joueur.rayon, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Les boules
+  ctx.fillStyle = "#e05a4e";
+  for (let i = 0; i < boules.length; i++) {
+    ctx.beginPath();
+    ctx.arc(boules[i].x, boules[i].y, boules[i].rayon, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // Les lasers
+  for (let i = 0; i < lasers.length; i++) {
+    const laser = lasers[i];
+    ctx.fillStyle = laser.prevention > 0 ? "rgba(255, 210, 60, 0.5)" : "#ff4040";
+    const epaisseur = laser.prevention > 0 ? 4 : 14;
+
+    if (laser.vertical) {
+      ctx.fillRect(laser.position - epaisseur / 2, 0, epaisseur, hauteur);
+    } else {
+      ctx.fillRect(0, laser.position - epaisseur / 2, largeur, epaisseur);
+    }
+  }
+
+  // Le boss (un gros carré en haut de l'écran)
+  if (bossArrive) {
+    ctx.fillStyle = "#9b3bd1";
+    ctx.fillRect(largeur / 2 - 40, 10, 80, 40);
+  }
+}
+
+// ---------- 6. Vérifier les collisions (est-ce que le joueur est touché) ----------
+function distance(x1, y1, x2, y2) {
+  return Math.sqrt((x2 - x1) * (x2 - x1) + (y2 - y1) * (y2 - y1));
+}
+
+function joueurToucheParUneBoule() {
+  for (let i = 0; i < boules.length; i++) {
+    if (distance(joueur.x, joueur.y, boules[i].x, boules[i].y) < joueur.rayon + boules[i].rayon) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function joueurToucheParUnLaser() {
+  for (let i = 0; i < lasers.length; i++) {
+    const laser = lasers[i];
+    if (laser.prevention > 0) continue; // pas encore dangereux
+
+    if (laser.vertical) {
+      if (Math.abs(joueur.x - laser.position) < 7 + joueur.rayon) return true;
+    } else {
+      if (Math.abs(joueur.y - laser.position) < 7 + joueur.rayon) return true;
+    }
+  }
+  return false;
+}
+
+// ---------- 7. La boucle du jeu ----------
+let enCours = true;
+let imagesEcoulees = 0; // compte les images depuis le début de la partie
+let record = Number(localStorage.getItem("esquiveRecord")) || 0;
+affichageRecord.textContent = record;
+
+function boucleDeJeu() {
+  if (!enCours) return;
+
+  imagesEcoulees = imagesEcoulees + 1;
+  const secondesEcoulees = Math.floor(imagesEcoulees / 60); // environ 60 images par seconde
+  affichageTemps.textContent = secondesEcoulees;
+
+  // Le boss arrive à 10 secondes
+  if (secondesEcoulees >= 10 && !bossArrive) {
+    declencherBoss();
+  }
+
+  // On crée une nouvelle boule toutes les 50 images (plus souvent si le boss est là)
+  if (imagesEcoulees % (bossArrive ? 25 : 50) === 0) {
+    creerBoule();
+  }
+
+  // On crée un nouveau laser toutes les 90 images (plus souvent si le boss est là)
+  if (imagesEcoulees % (bossArrive ? 60 : 90) === 0) {
+    creerLaser();
+  }
+
+  deplacerJoueur();
+  deplacerBoules();
+  mettreAJourLasers();
+  dessiner();
+
+  if (joueurToucheParUneBoule() || joueurToucheParUnLaser()) {
+    terminerPartie(secondesEcoulees);
+    return;
+  }
+
+  requestAnimationFrame(boucleDeJeu);
+}
+
+// ---------- 8. Fin de partie ----------
+function terminerPartie(secondesEcoulees) {
+  enCours = false;
+
+  if (secondesEcoulees > record) {
+    record = secondesEcoulees;
+    localStorage.setItem("esquiveRecord", record);
+    affichageRecord.textContent = record;
+    messageFin.textContent = "Nouveau record : " + secondesEcoulees + " secondes !";
+  } else {
+    messageFin.textContent = "Tu as survécu " + secondesEcoulees + " secondes.";
+  }
+
+  finPartie.classList.remove("cache");
+}
+
+// ---------- 9. Rejouer ----------
 function nombreAuHasard(min, max) {
   return Math.floor(Math.random() * (max - min + 1)) + min;
 }
 
-function pause(ms) {
-  return new Promise(function (resolve) { setTimeout(resolve, ms); });
+function recommencer() {
+  joueur.x = largeur / 2;
+  joueur.y = hauteur / 2;
+  boules = [];
+  lasers = [];
+  bossArrive = false;
+  imagesEcoulees = 0;
+  enCours = true;
+  finPartie.classList.add("cache");
+  requestAnimationFrame(boucleDeJeu);
 }
 
-function membresRestants() {
-  return Object.keys(etat.membres).filter(function (nom) { return etat.membres[nom]; });
-}
+boutonRejouer.addEventListener("click", recommencer);
 
-// Lit la mise du joueur. Renvoie null si elle n'est pas valide.
-function lireMise() {
-  const mise = parseInt(champMise.value, 10);
-  if (isNaN(mise) || mise < 1) {
-    message.textContent = "Entre une mise d'au moins 1 €.";
-    return null;
-  }
-  if (mise > etat.argent) {
-    message.textContent = "Tu n'as pas assez d'argent pour cette mise !";
-    return null;
-  }
-  return mise;
-}
-
-// Change l'humeur du personnage un petit moment
-function humeur(emoji, classe) {
-  visage.textContent = emoji;
-  perso.classList.add(classe);
-  setTimeout(function () {
-    perso.classList.remove(classe);
-    afficher();
-  }, 600);
-}
-
-// ---------- 5. Affichage : met la page à jour selon l'état ----------
-function afficher() {
-  affichageArgent.textContent = etat.argent;
-
-  // On cache les membres perdus
-  for (const nom in etat.membres) {
-    const morceau = document.querySelector("#" + nom);
-    morceau.classList.toggle("perdu", !etat.membres[nom]);
-    document.querySelector("#m-" + nom).classList.toggle("visible", !etat.membres[nom]);
-  }
-
-  const restants = membresRestants();
-  etatMembres.textContent = "Membres restants : " + restants.length + " / 4";
-
-  // La flaque de sang grandit à chaque membre perdu
-  const perdus = 4 - restants.length;
-  flaque.style.transform = "scale(" + (perdus === 0 ? 0 : 0.35 + perdus * 0.16 + (etat.mort ? 0.3 : 0)) + ")";
-  perso.classList.toggle("mort", etat.mort);
-
-  // Visage selon la situation
-  if (etat.mort) visage.textContent = "💀";
-  else if (etat.argent <= 0) visage.textContent = "😩";
-  else if (restants.length < 4) visage.textContent = "😞";
-  else visage.textContent = "😔";
-
-  // Quels blocs montrer ?
-  const fauche = etat.argent < 1;
-  zoneJeux.classList.toggle("cache", fauche || etat.mort);
-  zoneMembre.classList.toggle("cache", !fauche || etat.mort);
-  zoneFin.classList.toggle("cache", !etat.mort);
-
-  sauvegarder();
-}
-
-// ---------- 6. Résultat d'une partie ----------
-// gain = true si le joueur gagne, "profit" = ce qu'il gagne en plus de sa mise
-function finDePartie(gagne, mise, profit, texte) {
-  if (gagne) {
-    etat.argent = etat.argent + profit;
-    ecrire("✅ " + texte + " Tu gagnes " + profit + " € !");
-    humeur("🥲", "gagne");
-  } else {
-    etat.argent = etat.argent - mise;
-    ecrire("❌ " + texte + " Tu perds " + mise + " € !");
-    humeur("😭", "tremble");
-  }
-  verifierMort();
-  afficher();
-  occupe = false;
-}
-
-// Mort = plus d'argent ET plus aucun membre à parier
-function verifierMort() {
-  if (etat.argent < 1 && membresRestants().length === 0) {
-    etat.mort = true;
-    texteFin.textContent = "Plus d'argent, plus de membres. Le croupier garde même ta tête en souvenir. Le casino gagne toujours.";
-  }
-}
-
-// ---------- 7. Jeu 1 : pile ou face ----------
-async function jouerPileOuFace(choix) {
-  if (occupe) return;
-  const mise = lireMise();
-  if (mise === null) return;
-  occupe = true;
-
-  const piece = document.querySelector("#piece");
-  piece.classList.add("tourne");
-  message.textContent = "La pièce tourne...";
-  await pause(800);
-  piece.classList.remove("tourne");
-
-  const resultat = nombreAuHasard(0, 1) === 0 ? "pile" : "face";
-  piece.textContent = resultat === "pile" ? "🪙" : "👑";
-  finDePartie(resultat === choix, mise, mise, "C'est " + resultat + " !");
-}
-
-// ---------- 8. Jeu 2 : le dé en 3D ----------
-// Pour montrer la bonne face, on tourne le cube.
-const ROTATIONS_DE = {
-  1: [0, 0], 6: [0, 180], 2: [0, -90], 5: [0, 90], 3: [-90, 0], 4: [90, 0]
-};
-let toursDe = 0; // on ajoute des tours complets pour que le dé "roule"
-
-async function jouerDe() {
-  if (occupe) return;
-  const mise = lireMise();
-  if (mise === null) return;
-  occupe = true;
-
-  const choix = parseInt(document.querySelector("#choix-de").value, 10);
-  const resultat = nombreAuHasard(1, 6);
-
-  toursDe = toursDe + 2;
-  const x = ROTATIONS_DE[resultat][0] + 360 * toursDe;
-  const y = ROTATIONS_DE[resultat][1] + 360 * toursDe;
-  document.querySelector("#de").style.transform = "rotateX(" + x + "deg) rotateY(" + y + "deg)";
-
-  message.textContent = "Le dé roule...";
-  await pause(1400);
-
-  finDePartie(resultat === choix, mise, mise * 4, "Le dé affiche " + resultat + ".");
-}
-
-// ---------- 9. Jeu 3 : la roulette ----------
-const ROUGES = [1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36];
-
-function couleurDuNumero(n) {
-  if (n === 0) return "zero";
-  return ROUGES.includes(n) ? "rouge" : "noir";
-}
-
-async function jouerRoulette(choix) {
-  if (occupe) return;
-  const mise = lireMise();
-  if (mise === null) return;
-  occupe = true;
-
-  const roue = document.querySelector("#roue");
-  const numero = document.querySelector("#numero");
-  roue.classList.add("tourne");
-  message.textContent = "Rien ne va plus...";
-
-  // On affiche des numéros au hasard pour l'effet, puis le vrai résultat
-  for (let i = 0; i < 12; i++) {
-    numero.textContent = nombreAuHasard(0, 36);
-    await pause(110);
-  }
-  roue.classList.remove("tourne");
-
-  const resultat = nombreAuHasard(0, 36);
-  numero.textContent = resultat;
-  const couleur = couleurDuNumero(resultat);
-
-  const gagne = couleur === choix;
-  const profit = choix === "zero" ? mise * 14 : mise;
-  finDePartie(gagne, mise, profit, "La bille s'arrête sur le " + resultat + " (" + couleur + ").");
-}
-
-// ---------- 10. Le pari des membres ----------
-// Quand on n'a plus d'argent : pile ou face, on mise un membre.
-// Gagné : +100 €. Perdu : le casino garde un membre.
-async function parierMembre() {
-  if (occupe) return;
-  const restants = membresRestants();
-  if (restants.length === 0) return;
-  occupe = true;
-
-  const membreMise = restants[nombreAuHasard(0, restants.length - 1)];
-  message.textContent = "Tu mises ton " + NOMS_MEMBRES[membreMise] + "... la pièce tourne !";
-  await pause(1000);
-
-  if (nombreAuHasard(0, 1) === 0) {
-    etat.argent = etat.argent + 100;
-    ecrire("😅 Tu gagnes ! +100 € et tu gardes ton " + NOMS_MEMBRES[membreMise] + ".");
-    humeur("🥲", "gagne");
-  } else {
-    etat.membres[membreMise] = false;
-    ecrire("💥 Perdu ! " + phraseGore(membreMise));
-    amputer(membreMise);
-    humeur("😵", "tremble");
-  }
-  verifierMort();
-  afficher();
-  occupe = false;
-}
-
-// ---------- 10 bis. Le gore ----------
-// Position de chaque articulation dans le dessin SVG
-const JOINTS = { brasG: [80, 110], brasD: [120, 110], jambeG: [85, 170], jambeD: [115, 170] };
-
-function phraseGore(nom) {
-  const article = nom.startsWith("bras") ? "ton " : "ta ";
-  const m = article + NOMS_MEMBRES[nom];
-  const phrases = [
-    "Pouf. " + m + " disparaît et le sang coule à flots.",
-    "Tu ne sens presque rien. " + m + " s'efface et le sang coule sur le tapis.",
-    "Le croupier claque des doigts : " + m + " n'est plus là. Le sang n'arrête pas de couler.",
-    "Silence... " + m + " a disparu. Du sang goutte lentement par terre."
-  ];
-  return phrases[nombreAuHasard(0, phrases.length - 1)];
-}
-
-// Fait gicler du sang. "calme" = simples gouttes qui coulent d'un moignon.
-function giclerSang(x, y, nombre, calme) {
-  for (let i = 0; i < nombre; i++) {
-    const goutte = document.createElementNS("http://www.w3.org/2000/svg", "circle");
-    goutte.setAttribute("cx", x);
-    goutte.setAttribute("cy", y);
-    goutte.setAttribute("r", calme ? nombreAuHasard(2, 3) : nombreAuHasard(2, 6));
-    goutte.classList.add("goutte");
-    goutte.style.setProperty("--dx", (calme ? nombreAuHasard(-10, 10) : nombreAuHasard(-100, 100)) + "px");
-    goutte.style.setProperty("--dy", (calme ? nombreAuHasard(80, 150) : nombreAuHasard(-60, 150)) + "px");
-    sang.appendChild(goutte);
-  }
-  while (sang.children.length > 150) sang.removeChild(sang.firstChild); // pour ne pas ralentir la page
-}
-
-// Le membre disparaît, le sang gicle, l'écran flashe et tremble
-function amputer(nom) {
-  const joint = JOINTS[nom];
-  const volant = document.querySelector("#" + nom).cloneNode(true);
-  volant.removeAttribute("id");
-  volant.classList.add("disparait");
-  volants.appendChild(volant);
-  setTimeout(function () { volant.remove(); }, 600);
-
-  giclerSang(joint[0], joint[1], 30, false);
-
-  flash.classList.remove("actif");
-  casino.classList.remove("secousse");
-  void flash.offsetWidth; // astuce pour relancer l'animation
-  flash.classList.add("actif");
-  casino.classList.add("secousse");
-}
-
-// Les moignons saignent en continu
-setInterval(function () {
-  for (const nom in etat.membres) {
-    if (!etat.membres[nom]) giclerSang(JOINTS[nom][0], JOINTS[nom][1] + 4, 2, true);
-  }
-}, 600);
-
-// ---------- 11. Rejouer ----------
-function rejouer() {
-  etat = nouvellePartie();
-  historique.innerHTML = "";
-  volants.innerHTML = "";
-  sang.innerHTML = "";
-  message.textContent = "Nouvelle partie ! Tu as 100 €.";
-  occupe = false;
-  afficher();
-}
-
-// ---------- 12. On branche les boutons ----------
-document.querySelector("#btn-pile").addEventListener("click", function () { jouerPileOuFace("pile"); });
-document.querySelector("#btn-face").addEventListener("click", function () { jouerPileOuFace("face"); });
-document.querySelector("#btn-de").addEventListener("click", jouerDe);
-document.querySelector("#btn-rouge").addEventListener("click", function () { jouerRoulette("rouge"); });
-document.querySelector("#btn-noir").addEventListener("click", function () { jouerRoulette("noir"); });
-document.querySelector("#btn-zero").addEventListener("click", function () { jouerRoulette("zero"); });
-document.querySelector("#btn-membre").addEventListener("click", parierMembre);
-document.querySelector("#btn-rejouer").addEventListener("click", rejouer);
-
-// Les onglets : montrent un seul jeu à la fois
-document.querySelectorAll(".onglet").forEach(function (bouton) {
-  bouton.addEventListener("click", function () {
-    document.querySelectorAll(".onglet").forEach(function (b) { b.classList.remove("actif"); });
-    bouton.classList.add("actif");
-    document.querySelectorAll(".jeu").forEach(function (j) { j.classList.add("cache"); });
-    document.querySelector("#jeu-" + bouton.dataset.jeu).classList.remove("cache");
-  });
-});
-
-// Au chargement de la page
-afficher();
+// On lance la première partie
+requestAnimationFrame(boucleDeJeu);
