@@ -124,8 +124,34 @@ function mettreAJourLasers() {
 // ---------- 4. Le boss ----------
 let bossArrive = false;
 
+// Le boss est une grosse tête de Pacman énervée qui poursuit le joueur
+let boss = {
+  x: largeur / 2,
+  y: 50,
+  rayon: 30,
+  vitesse: 1.6,
+  boucheOuverte: 0 // sert juste à faire bouger la bouche pour l'animation
+};
+
 function declencherBoss() {
   bossArrive = true;
+}
+
+// Fait avancer le boss vers le joueur, un petit pas à la fois
+function deplacerBoss() {
+  if (!bossArrive) return;
+
+  const dx = joueur.x - boss.x;
+  const dy = joueur.y - boss.y;
+  const distanceAuJoueur = Math.sqrt(dx * dx + dy * dy);
+
+  // On avance seulement si on n'est pas déjà collé au joueur, pour ne pas diviser par zéro
+  if (distanceAuJoueur > 1) {
+    boss.x = boss.x + (dx / distanceAuJoueur) * boss.vitesse;
+    boss.y = boss.y + (dy / distanceAuJoueur) * boss.vitesse;
+  }
+
+  boss.boucheOuverte = boss.boucheOuverte + 1;
 }
 
 // ---------- 5. Dessiner la scène ----------
@@ -159,11 +185,35 @@ function dessiner() {
     }
   }
 
-  // Le boss (un gros carré en haut de l'écran)
+  // Le boss : une tête de Pacman énervée
   if (bossArrive) {
-    ctx.fillStyle = "#9b3bd1";
-    ctx.fillRect(largeur / 2 - 40, 10, 80, 40);
+    dessinerBoss();
   }
+}
+
+function dessinerBoss() {
+  // La bouche s'ouvre et se ferme avec le temps, entre 0.05 et 0.35 radian
+  const ouverture = 0.05 + (Math.sin(boss.boucheOuverte / 6) + 1) / 2 * 0.3;
+
+  // On calcule la direction vers le joueur, pour que la bouche soit orientée vers lui
+  const angleVersJoueur = Math.atan2(joueur.y - boss.y, joueur.x - boss.x);
+
+  ctx.fillStyle = "#ffd23f";
+  ctx.beginPath();
+  ctx.moveTo(boss.x, boss.y);
+  ctx.arc(boss.x, boss.y, boss.rayon, angleVersJoueur + ouverture, angleVersJoueur - ouverture, false);
+  ctx.closePath();
+  ctx.fill();
+
+  // Sourcils froncés, pour l'air énervé
+  ctx.strokeStyle = "#8a1a1a";
+  ctx.lineWidth = 4;
+  ctx.beginPath();
+  ctx.moveTo(boss.x - 16, boss.y - 20);
+  ctx.lineTo(boss.x - 4, boss.y - 12);
+  ctx.moveTo(boss.x + 16, boss.y - 20);
+  ctx.lineTo(boss.x + 4, boss.y - 12);
+  ctx.stroke();
 }
 
 // ---------- 6. Vérifier les collisions (est-ce que le joueur est touché) ----------
@@ -178,6 +228,11 @@ function joueurToucheParUneBoule() {
     }
   }
   return false;
+}
+
+function joueurToucheParLeBoss() {
+  if (!bossArrive) return false;
+  return distance(joueur.x, joueur.y, boss.x, boss.y) < joueur.rayon + boss.rayon;
 }
 
 function joueurToucheParUnLaser() {
@@ -225,9 +280,10 @@ function boucleDeJeu() {
   deplacerJoueur();
   deplacerBoules();
   mettreAJourLasers();
+  deplacerBoss();
   dessiner();
 
-  if (joueurToucheParUneBoule() || joueurToucheParUnLaser()) {
+  if (joueurToucheParUneBoule() || joueurToucheParUnLaser() || joueurToucheParLeBoss()) {
     terminerPartie(secondesEcoulees);
     return;
   }
@@ -262,6 +318,8 @@ function recommencer() {
   boules = [];
   lasers = [];
   bossArrive = false;
+  boss.x = largeur / 2;
+  boss.y = 50;
   imagesEcoulees = 0;
   enCours = true;
   finPartie.classList.add("cache");
