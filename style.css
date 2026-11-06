@@ -1,4 +1,4 @@
-/* ===== Casino Mortel : style ===== */
+/* ===== CasLife : style ===== */
 body {
   margin: 0;
   padding: 16px;
@@ -34,9 +34,9 @@ h1 { text-align: center; color: #ffd34d; margin: 0; text-shadow: 0 2px 6px #000;
   transition: transform 0.4s;
   filter: drop-shadow(0 10px 8px rgba(0, 0, 0, 0.6));
 }
-#perso line { stroke: #f1c27d; stroke-width: 16; stroke-linecap: round; }
-#corps { fill: #b3202a; }
-#tete { fill: #f1c27d; }
+#perso line { stroke: #b8b2a7; stroke-width: 16; stroke-linecap: round; }
+#corps { fill: #2b2f3a; }
+#tete { fill: #b8b2a7; }
 #visage { font-size: 40px; }
 #perso g.perdu { display: none; }
 #perso.tremble { animation: tremble 0.4s; }
@@ -147,3 +147,41 @@ input, select { padding: 6px; font-size: 16px; border-radius: 6px; width: 80px; 
 
 #historique { list-style: none; padding: 0; max-height: 140px; overflow-y: auto; font-size: 14px; opacity: 0.85; }
 #historique li { padding: 2px 0; border-bottom: 1px solid rgba(255, 255, 255, 0.1); }
+
+/* ===== Gore (version dessin animé) ===== */
+#perso { overflow: visible; }
+#flaque { fill: #6b0a10; transform-box: fill-box; transform-origin: center; transform: scale(0); transition: transform 1.5s ease-out; }
+.moignon { display: none; fill: #9b0d16; stroke: #5a070c; stroke-width: 3; transform-box: fill-box; transform-origin: center; animation: pulse 0.9s infinite alternate; }
+.moignon.visible { display: block; }
+@keyframes pulse { to { transform: scale(1.25); } }
+
+/* Le membre arraché vole puis reste par terre */
+#perso .vole { transform-box: fill-box; transform-origin: center; animation: vole 0.9s cubic-bezier(.2, .7, .4, 1) forwards; }
+@keyframes vole { to { transform: translate(var(--dx), var(--dy)) rotate(var(--rot)); } }
+
+/* Gouttes de sang */
+.goutte { fill: #b3101a; animation: gicle 0.5s ease-out forwards; }
+@keyframes gicle { to { transform: translate(var(--dx), var(--dy)); } }
+
+/* Mort : la tête roule par terre */
+#perso.mort #tete, #perso.mort #visage { transform-box: fill-box; transform-origin: center; transform: translate(55px, 190px) rotate(200deg); transition: transform 1s ease-in; }
+
+/* Éclair rouge et secousse de l'écran */
+#flash { position: fixed; inset: 0; background: rgba(160, 0, 0, 0.55); opacity: 0; pointer-events: none; z-index: 10; }
+#flash.actif { animation: eclair 0.6s ease-out; }
+@keyframes eclair { from { opacity: 1; } to { opacity: 0; } }
+.casino.secousse { animation: secousse 0.5s; }
+@keyframes secousse {
+  0%, 100% { transform: translate(0); }
+  20% { transform: translate(-10px, 6px); }
+  40% { transform: translate(9px, -7px); }
+  60% { transform: translate(-7px, -5px); }
+  80% { transform: translate(6px, 7px); }
+}
+
+/* ===== Personnage déprimé : épaules et tête qui tombent ===== */
+#tete, #visage { transform: translate(-6px, 14px); }
+
+/* Le membre disparaît en fondu */
+#perso .disparait { animation: disparait 0.5s forwards; }
+@keyframes disparait { to { opacity: 0; } }
