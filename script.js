@@ -1,4 +1,4 @@
-// ===== Casino Mortel : le cerveau du jeu =====
+// ===== CasLife : le cerveau du jeu =====
 
 // ---------- 1. L'état du jeu ----------
 // Tout ce qu'on doit retenir : l'argent et les membres qu'il reste.
@@ -23,7 +23,7 @@ let occupe = false; // true pendant une animation (empêche de spammer les bouto
 // ---------- 2. Sauvegarde (localStorage) ----------
 function sauvegarder() {
   try {
-    localStorage.setItem("casinoMortel", JSON.stringify(etat));
+    localStorage.setItem("casLife", JSON.stringify(etat));
   } catch (e) {
     console.log("Sauvegarde impossible", e);
   }
@@ -31,7 +31,7 @@ function sauvegarder() {
 
 function charger() {
   try {
-    const texte = localStorage.getItem("casinoMortel");
+    const texte = localStorage.getItem("casLife");
     if (texte) return JSON.parse(texte);
   } catch (e) {
     console.log("Chargement impossible", e);
@@ -51,6 +51,11 @@ const zoneJeux = document.querySelector("#zone-jeux");
 const zoneMembre = document.querySelector("#zone-membre");
 const zoneFin = document.querySelector("#zone-fin");
 const texteFin = document.querySelector("#texte-fin");
+const flaque = document.querySelector("#flaque");
+const volants = document.querySelector("#volants");
+const sang = document.querySelector("#sang");
+const flash = document.querySelector("#flash");
+const casino = document.querySelector(".casino");
 
 // ---------- 4. Petites fonctions utiles ----------
 function ecrire(texte) {
@@ -93,7 +98,7 @@ function humeur(emoji, classe) {
   setTimeout(function () {
     perso.classList.remove(classe);
     afficher();
-  }, 900);
+  }, 600);
 }
 
 // ---------- 5. Affichage : met la page à jour selon l'état ----------
@@ -104,16 +109,22 @@ function afficher() {
   for (const nom in etat.membres) {
     const morceau = document.querySelector("#" + nom);
     morceau.classList.toggle("perdu", !etat.membres[nom]);
+    document.querySelector("#m-" + nom).classList.toggle("visible", !etat.membres[nom]);
   }
 
   const restants = membresRestants();
   etatMembres.textContent = "Membres restants : " + restants.length + " / 4";
 
+  // La flaque de sang grandit à chaque membre perdu
+  const perdus = 4 - restants.length;
+  flaque.style.transform = "scale(" + (perdus === 0 ? 0 : 0.35 + perdus * 0.16 + (etat.mort ? 0.3 : 0)) + ")";
+  perso.classList.toggle("mort", etat.mort);
+
   // Visage selon la situation
   if (etat.mort) visage.textContent = "💀";
-  else if (etat.argent <= 0) visage.textContent = "😰";
-  else if (restants.length < 4) visage.textContent = "😬";
-  else visage.textContent = "😎";
+  else if (etat.argent <= 0) visage.textContent = "😩";
+  else if (restants.length < 4) visage.textContent = "😞";
+  else visage.textContent = "😔";
 
   // Quels blocs montrer ?
   const fauche = etat.argent < 1;
@@ -130,7 +141,7 @@ function finDePartie(gagne, mise, profit, texte) {
   if (gagne) {
     etat.argent = etat.argent + profit;
     ecrire("✅ " + texte + " Tu gagnes " + profit + " € !");
-    humeur("🤑", "gagne");
+    humeur("🥲", "gagne");
   } else {
     etat.argent = etat.argent - mise;
     ecrire("❌ " + texte + " Tu perds " + mise + " € !");
@@ -145,7 +156,7 @@ function finDePartie(gagne, mise, profit, texte) {
 function verifierMort() {
   if (etat.argent < 1 && membresRestants().length === 0) {
     etat.mort = true;
-    texteFin.textContent = "Plus d'argent, plus de membres... Le casino gagne toujours. Fin de la partie.";
+    texteFin.textContent = "Plus d'argent, plus de membres. Le croupier garde même ta tête en souvenir. Le casino gagne toujours.";
   }
 }
 
@@ -245,21 +256,80 @@ async function parierMembre() {
   if (nombreAuHasard(0, 1) === 0) {
     etat.argent = etat.argent + 100;
     ecrire("😅 Tu gagnes ! +100 € et tu gardes ton " + NOMS_MEMBRES[membreMise] + ".");
-    humeur("🤑", "gagne");
+    humeur("🥲", "gagne");
   } else {
     etat.membres[membreMise] = false;
-    ecrire("💥 Perdu ! Le casino garde ton " + NOMS_MEMBRES[membreMise] + ".");
-    humeur("😱", "tremble");
+    ecrire("💥 Perdu ! " + phraseGore(membreMise));
+    amputer(membreMise);
+    humeur("😵", "tremble");
   }
   verifierMort();
   afficher();
   occupe = false;
 }
 
+// ---------- 10 bis. Le gore ----------
+// Position de chaque articulation dans le dessin SVG
+const JOINTS = { brasG: [80, 110], brasD: [120, 110], jambeG: [85, 170], jambeD: [115, 170] };
+
+function phraseGore(nom) {
+  const article = nom.startsWith("bras") ? "ton " : "ta ";
+  const m = article + NOMS_MEMBRES[nom];
+  const phrases = [
+    "Pouf. " + m + " disparaît et le sang coule à flots.",
+    "Tu ne sens presque rien. " + m + " s'efface et le sang coule sur le tapis.",
+    "Le croupier claque des doigts : " + m + " n'est plus là. Le sang n'arrête pas de couler.",
+    "Silence... " + m + " a disparu. Du sang goutte lentement par terre."
+  ];
+  return phrases[nombreAuHasard(0, phrases.length - 1)];
+}
+
+// Fait gicler du sang. "calme" = simples gouttes qui coulent d'un moignon.
+function giclerSang(x, y, nombre, calme) {
+  for (let i = 0; i < nombre; i++) {
+    const goutte = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+    goutte.setAttribute("cx", x);
+    goutte.setAttribute("cy", y);
+    goutte.setAttribute("r", calme ? nombreAuHasard(2, 3) : nombreAuHasard(2, 6));
+    goutte.classList.add("goutte");
+    goutte.style.setProperty("--dx", (calme ? nombreAuHasard(-10, 10) : nombreAuHasard(-100, 100)) + "px");
+    goutte.style.setProperty("--dy", (calme ? nombreAuHasard(80, 150) : nombreAuHasard(-60, 150)) + "px");
+    sang.appendChild(goutte);
+  }
+  while (sang.children.length > 150) sang.removeChild(sang.firstChild); // pour ne pas ralentir la page
+}
+
+// Le membre disparaît, le sang gicle, l'écran flashe et tremble
+function amputer(nom) {
+  const joint = JOINTS[nom];
+  const volant = document.querySelector("#" + nom).cloneNode(true);
+  volant.removeAttribute("id");
+  volant.classList.add("disparait");
+  volants.appendChild(volant);
+  setTimeout(function () { volant.remove(); }, 600);
+
+  giclerSang(joint[0], joint[1], 30, false);
+
+  flash.classList.remove("actif");
+  casino.classList.remove("secousse");
+  void flash.offsetWidth; // astuce pour relancer l'animation
+  flash.classList.add("actif");
+  casino.classList.add("secousse");
+}
+
+// Les moignons saignent en continu
+setInterval(function () {
+  for (const nom in etat.membres) {
+    if (!etat.membres[nom]) giclerSang(JOINTS[nom][0], JOINTS[nom][1] + 4, 2, true);
+  }
+}, 600);
+
 // ---------- 11. Rejouer ----------
 function rejouer() {
   etat = nouvellePartie();
   historique.innerHTML = "";
+  volants.innerHTML = "";
+  sang.innerHTML = "";
   message.textContent = "Nouvelle partie ! Tu as 100 €.";
   occupe = false;
   afficher();
