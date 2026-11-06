@@ -74,7 +74,10 @@ function creerBoule() {
   const dx = largeur / 2 - x;
   const dy = hauteur / 2 - y;
   const distance = Math.sqrt(dx * dx + dy * dy);
-  const vitesse = 2;
+
+  // La vitesse des boules augmente avec le temps : le jeu devient de plus en plus dur
+  const secondesEcoulees = Math.floor(imagesEcoulees / 60);
+  const vitesse = 2 + secondesEcoulees * 0.12;
 
   boules.push({
     x: x,
@@ -129,7 +132,7 @@ let boss = {
   x: largeur / 2,
   y: 50,
   rayon: 30,
-  vitesse: 1.6,
+  vitesse: 1.6, // sa vitesse de départ, elle augmentera ensuite avec le temps
   boucheOuverte: 0 // sert juste à faire bouger la bouche pour l'animation
 };
 
@@ -137,9 +140,42 @@ function declencherBoss() {
   bossArrive = true;
 }
 
+// Les lasers que le boss tire vers le joueur
+let tirsBoss = [];
+
+function bossTire() {
+  const dx = joueur.x - boss.x;
+  const dy = joueur.y - boss.y;
+  const distanceAuJoueur = Math.sqrt(dx * dx + dy * dy);
+  const vitesse = 5;
+
+  tirsBoss.push({
+    x: boss.x,
+    y: boss.y,
+    vx: (dx / distanceAuJoueur) * vitesse,
+    vy: (dy / distanceAuJoueur) * vitesse,
+    rayon: 6
+  });
+}
+
+function deplacerTirsBoss() {
+  for (let i = 0; i < tirsBoss.length; i++) {
+    tirsBoss[i].x = tirsBoss[i].x + tirsBoss[i].vx;
+    tirsBoss[i].y = tirsBoss[i].y + tirsBoss[i].vy;
+  }
+  // On enlève les tirs qui sont sortis de l'écran, pour ne pas garder des objets inutiles
+  tirsBoss = tirsBoss.filter(function (tir) {
+    return tir.x > -30 && tir.x < largeur + 30 && tir.y > -30 && tir.y < hauteur + 30;
+  });
+}
+
 // Fait avancer le boss vers le joueur, un petit pas à la fois
 function deplacerBoss() {
   if (!bossArrive) return;
+
+  // Le boss devient de plus en plus rapide, plus la partie dure
+  const secondesEcoulees = Math.floor(imagesEcoulees / 60);
+  boss.vitesse = 1.6 + secondesEcoulees * 0.05;
 
   const dx = joueur.x - boss.x;
   const dy = joueur.y - boss.y;
@@ -185,6 +221,14 @@ function dessiner() {
     }
   }
 
+  // Les lasers tirés par le boss
+  ctx.fillStyle = "#ff3b3b";
+  for (let i = 0; i < tirsBoss.length; i++) {
+    ctx.beginPath();
+    ctx.arc(tirsBoss[i].x, tirsBoss[i].y, tirsBoss[i].rayon, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
   // Le boss : une tête de Pacman énervée
   if (bossArrive) {
     dessinerBoss();
@@ -192,12 +236,13 @@ function dessiner() {
 }
 
 function dessinerBoss() {
-  // La bouche s'ouvre et se ferme avec le temps, entre 0.05 et 0.35 radian
-  const ouverture = 0.05 + (Math.sin(boss.boucheOuverte / 6) + 1) / 2 * 0.3;
+  // La bouche s'ouvre et se ferme avec le temps, entre 0.08 et 0.45 radian
+  const ouverture = 0.08 + (Math.sin(boss.boucheOuverte / 6) + 1) / 2 * 0.37;
 
   // On calcule la direction vers le joueur, pour que la bouche soit orientée vers lui
   const angleVersJoueur = Math.atan2(joueur.y - boss.y, joueur.x - boss.x);
 
+  // Le corps jaune, avec la bouche ouverte vers le joueur
   ctx.fillStyle = "#ffd23f";
   ctx.beginPath();
   ctx.moveTo(boss.x, boss.y);
@@ -205,14 +250,26 @@ function dessinerBoss() {
   ctx.closePath();
   ctx.fill();
 
+  // Un contour pour le détacher du fond
+  ctx.strokeStyle = "#8a6a00";
+  ctx.lineWidth = 2;
+  ctx.stroke();
+
+  // Un oeil, du côté opposé à la bouche
+  ctx.fillStyle = "#1a1a1a";
+  ctx.beginPath();
+  ctx.arc(boss.x - Math.cos(angleVersJoueur) * 10, boss.y - 14, 4, 0, Math.PI * 2);
+  ctx.fill();
+
   // Sourcils froncés, pour l'air énervé
   ctx.strokeStyle = "#8a1a1a";
   ctx.lineWidth = 4;
+  ctx.lineCap = "round";
   ctx.beginPath();
-  ctx.moveTo(boss.x - 16, boss.y - 20);
-  ctx.lineTo(boss.x - 4, boss.y - 12);
-  ctx.moveTo(boss.x + 16, boss.y - 20);
-  ctx.lineTo(boss.x + 4, boss.y - 12);
+  ctx.moveTo(boss.x - 18, boss.y - 22);
+  ctx.lineTo(boss.x - 4, boss.y - 14);
+  ctx.moveTo(boss.x + 18, boss.y - 22);
+  ctx.lineTo(boss.x + 4, boss.y - 14);
   ctx.stroke();
 }
 
@@ -233,6 +290,15 @@ function joueurToucheParUneBoule() {
 function joueurToucheParLeBoss() {
   if (!bossArrive) return false;
   return distance(joueur.x, joueur.y, boss.x, boss.y) < joueur.rayon + boss.rayon;
+}
+
+function joueurToucheParUnTirDeBoss() {
+  for (let i = 0; i < tirsBoss.length; i++) {
+    if (distance(joueur.x, joueur.y, tirsBoss[i].x, tirsBoss[i].y) < joueur.rayon + tirsBoss[i].rayon) {
+      return true;
+    }
+  }
+  return false;
 }
 
 function joueurToucheParUnLaser() {
@@ -267,23 +333,43 @@ function boucleDeJeu() {
     declencherBoss();
   }
 
-  // On crée une nouvelle boule toutes les 50 images (plus souvent si le boss est là)
-  if (imagesEcoulees % (bossArrive ? 25 : 50) === 0) {
+  // Le nombre d'images entre deux apparitions diminue avec le temps : ça arrive de plus en plus souvent.
+  // On garde un minimum (10 et 20) pour que ça reste jouable un minimum, même si ça devient très dur.
+  let intervalleBoules = Math.max(10, 50 - secondesEcoulees * 1.5);
+  let intervalleLasers = Math.max(20, 90 - secondesEcoulees * 2);
+
+  // Une fois le boss arrivé, tout devient encore plus fréquent
+  if (bossArrive) {
+    intervalleBoules = intervalleBoules / 2;
+    intervalleLasers = intervalleLasers / 1.5;
+  }
+
+  if (imagesEcoulees % Math.round(intervalleBoules) === 0) {
     creerBoule();
   }
 
-  // On crée un nouveau laser toutes les 90 images (plus souvent si le boss est là)
-  if (imagesEcoulees % (bossArrive ? 60 : 90) === 0) {
+  if (imagesEcoulees % Math.round(intervalleLasers) === 0) {
     creerLaser();
+  }
+
+  // Le boss tire un laser toutes les 70 images, environ une fois par seconde
+  if (bossArrive && imagesEcoulees % 70 === 0) {
+    bossTire();
   }
 
   deplacerJoueur();
   deplacerBoules();
   mettreAJourLasers();
   deplacerBoss();
+  deplacerTirsBoss();
   dessiner();
 
-  if (joueurToucheParUneBoule() || joueurToucheParUnLaser() || joueurToucheParLeBoss()) {
+  if (
+    joueurToucheParUneBoule() ||
+    joueurToucheParUnLaser() ||
+    joueurToucheParLeBoss() ||
+    joueurToucheParUnTirDeBoss()
+  ) {
     terminerPartie(secondesEcoulees);
     return;
   }
@@ -317,6 +403,7 @@ function recommencer() {
   joueur.y = hauteur / 2;
   boules = [];
   lasers = [];
+  tirsBoss = [];
   bossArrive = false;
   boss.x = largeur / 2;
   boss.y = 50;
